@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -99,7 +98,7 @@ func unpackZip(zipPath, downloadPath string) error {
 	// Теперь извлекаем только содержимое папки build
 	for _, file := range reader.File {
 		// Пропускаем файлы вне папки build
-		if !strings.HasPrefix(file.Name, buildPrefix) {
+		if !strings.HasPrefix(file.Name, buildPrefix) || strings.Contains(file.Name, "updater") {
 			continue
 		}
 
@@ -164,7 +163,6 @@ func Download(isDev bool) {
 		fmt.Println("Error:", err)
 		return
 	}
-	defer deleteZipFile(release)
 	err = downloadRelease(release)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -176,9 +174,10 @@ func Download(isDev bool) {
 		downloadPath = "E:\\dev\\eve\\eve_traider\\updater"
 	} else {
 		downloadPath, _ = os.Executable()
+		downloadPath = filepath.Join(filepath.Dir(downloadPath))
 	}
-	downloadPath = path.Join(downloadPath, "bin")
 
+	defer deleteZipFile(release)
 	err = unpackZip(fmt.Sprintf("release-%s.zip", release.TagName), downloadPath)
 	if err != nil {
 		fmt.Println("Error:", err)

@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: "../local_server/build/eve_traiders/web/pages",
+    outDir: "../build/web/pages",
     assetsDir: "../static", // статика будет в web/static
     emptyOutDir: true,
     copyPublicDir: false,

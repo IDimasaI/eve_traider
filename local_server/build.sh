@@ -1,3 +1,3 @@
 
 # Build the project
-go build -o ./../build/eve_traiders/local_server.exe
+go build -o ./../build/local_server.exe

@@ -11,6 +11,7 @@ import LeftPanel from "../components/LeftPanel.vue";
 import Fovorite from "../components/Favourite.vue";
 
 import BarChart from "../components/BarChart.vue";
+import { find_id } from "../utils/API.ts";
 
 
 type Items = {
@@ -19,7 +20,10 @@ type Items = {
     id: number;
 }[];
 
-
+type MarketData = {
+    market: string;
+    data: any
+}
 async function get_all_items() {
     const res = await fetch("/api/v2/get_all_items");
     return (await res.json()) as Items;
@@ -44,7 +48,30 @@ const selectItem = (item: string) => {
     selectedItem.value = item;
 }
 
+const search_in_market = async () => {
+    const id = await find_id(searchQuery.value)
+    if (!id) return
 
+    const markets = [
+        { id: 10000002, name: "Jita" },
+        { id: 10000030, name: "Rens" },
+        { id: 10000032, name: "Dodixie" },
+        { id: 10000042, name: "Hek" },
+        { id: 10000043, name: "Amarr" },
+    ]
+
+    const promises = markets.map(async market => {
+        const res = await fetch(`https://esi.evetech.net/latest/markets/${market.id}/orders/?type_id=${id}&order_type=sell&language=en-us`)
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+        const data = await res.json()
+        return { market: market.name, data: data }
+    })
+
+    const results = await Promise.all(promises)
+    marketData.value = results
+    console.log(marketData.value)
+    return
+}
 
 
 const favoritesManager = new FavoritesManager();
@@ -56,7 +83,7 @@ const selectedItem = ref("");
 
 let MAX_COUNT_ITEMS = ref(30);
 
-
+const marketData = ref<MarketData[]>([]);
 // КН Поисковые утилиты и переменные//
 
 
@@ -71,6 +98,9 @@ provide<Favorite>('Favourite', {
     favoriteItems
 })
 
+
+const type_search = ref<string>("")
+
 onMounted(async () => {
     favoriteItems.value = favoritesManager.getFavorites();
 
@@ -81,14 +111,15 @@ onMounted(async () => {
         localStorage.setItem("items_id_name", JSON.stringify(all_names.value));
     }
 
-    const missileSearcher = new FuzzySearcher(all_names.value!.map((item) => item.name));
+    const fuzzySearcher = new FuzzySearcher(all_names.value!.map((item) => item.name));
     time_watch(
         (query: string) => {
+            if (type_search.value != 'base') return
             if (query.length < 3) {
                 itemNames.value = [];
                 return;
             }
-            const results = missileSearcher.search(query, {
+            const results = fuzzySearcher.search(query, {
                 minScore: 0.1,
                 exactMatchBonus: 0.4,
                 maxResults: MAX_COUNT_ITEMS.value,
@@ -108,17 +139,35 @@ onMounted(async () => {
     <section class="bg-white min-h-screen flex md:flex-row flex-col">
         <section
             class="text-center flex flex-col items-left md:min-w-[310px] md:max-w-2/12 max-md:w-full text-sm bg-gray-50">
-            <div class="flex flex-col  mb-8">
-                <label for="search">Поиск </label>
+            <div class="flex  flex-row mt-8 justify-around">
+                <button class="btn" @click="type_search = 'base'">База</button>
+                <button class="btn" @click="type_search = 'shop'">Магазин</button>
+            </div>
+            <template v-if="type_search == 'base'">
+                <div class="flex flex-col  mb-8">
+                    <label for="search">Поиск в базе</label>
+                    <input id="search" type="text" placeholder="Search..." v-model="searchQuery"
+                        class="border border-y-slate-500 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-white rounded-md px-2 py-1" />
+                    <p class="text-sm text-gray-500 pointer-events-none">
+                        {{ itemNames.length }}/{{ MAX_COUNT_ITEMS }}
+                        <span class="pointer-events-auto cursor-pointer" @click="addItem()"
+                            title="добавить 10 максимальных предметов">+</span>
+                    </p>
+                </div>
+                <LeftPanel v-if="favoriteItems" :favoriteItems="favoriteItems" @selectItem="selectItem" />
+            </template>
+            <template v-else-if="type_search == 'shop'">
                 <input id="search" type="text" placeholder="Search..." v-model="searchQuery"
                     class="border border-y-slate-500 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-white rounded-md px-2 py-1" />
-                <p class="text-sm text-gray-500 pointer-events-none">
-                    {{ itemNames.length }}/{{ MAX_COUNT_ITEMS }}
-                    <span class="pointer-events-auto cursor-pointer" @click="addItem()"
-                        title="добавить 10 максимальных предметов">+</span>
-                </p>
-            </div>
-            <LeftPanel v-if="favoriteItems" :favoriteItems="favoriteItems" @selectItem="selectItem" />
+                <button @click="search_in_market" class="btn">Поиск</button>
+                <div class="flex flex-col  mb-8">
+                    <div v-for="item in marketData">
+                        <p class="text-sm text-gray-500 pointer-events-none">
+                            {{ item.market }}: {{ item.data.length }}
+                        </p>
+                    </div>
+                </div>
+            </template>
         </section>
         <section class="flex flex-col items-center w-full">
             <div class="w-1/4 bg-gray-300 rounded-md px-4 py-2">

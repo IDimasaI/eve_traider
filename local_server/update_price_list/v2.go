@@ -17,10 +17,10 @@ type UpdatePriceListV2 struct {
 
 var Id_Markets = map[int]string{
 	10000002: "Jita",
-	//10000003: "Amarr",
-	//10000004: "Dodixie",
-	// 10000005: "Rens",
-	// 10000006: "Hek",
+	//10000030: "Rens",
+	//10000043: "Amarr",
+	//10000032: "Dodixie",
+	// 10000042: "Hek"
 }
 
 var PriceList map[int]map[int]float64

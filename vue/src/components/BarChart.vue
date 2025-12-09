@@ -187,7 +187,7 @@ const formatDeltaOrderVolume = (order: number, volume: number): string => {
 }
 
 
- 
+
 const generateData = async (): Promise<void> => {
 
 
@@ -197,7 +197,7 @@ const generateData = async (): Promise<void> => {
 
   if (prices[0] && prices[0].error) {
     for (let i = 0; i < iter; i++) {
-      // prices = await get_price(id_item)
+      prices = await get_price(id_item)
       if (!prices[0]?.error) {
         break
       } else {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -176,6 +177,7 @@ func Download(isDev bool) {
 	} else {
 		downloadPath, _ = os.Executable()
 	}
+	downloadPath = path.Join(downloadPath, "bin")
 
 	err = unpackZip(fmt.Sprintf("release-%s.zip", release.TagName), downloadPath)
 	if err != nil {

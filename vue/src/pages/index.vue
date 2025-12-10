@@ -1,18 +1,20 @@
 <script lang="ts" setup>
 import type { Favorite } from "../storage.ts"
+import type { MarketData } from "../utils/API.ts"
 
-import CountItems from "../components/CountItems.vue";
+
 import BaseToolbar from "../components/BaseToolbar.vue";
 import { FuzzySearcher } from "../utils/search.ts";
 import { ref, onMounted, provide } from "vue";
 import { time_watch } from "../utils/delay.ts";
 import { FavoritesManager } from "../utils/fovarites.ts";
-import LeftPanel from "../components/LeftPanel.vue";
-import Fovorite from "../components/Favourite.vue";
-
-import BarChart from "../components/BarChart.vue";
 import { find_id } from "../utils/API.ts";
 
+
+import LeftPanel from "../components/LeftPanel.vue";
+import Fovorite from "../components/Favourite.vue";
+import BarChart from "../components/BarChart.vue";
+import RegionMarketInfo from "../components/RegionMarketInfo.vue";
 
 type Items = {
     name: string;
@@ -20,10 +22,12 @@ type Items = {
     id: number;
 }[];
 
-type MarketData = {
-    market: string;
-    data: any
+enum SearchType {
+    Base,
+    Market
 }
+
+
 async function get_all_items() {
     const res = await fetch("/api/v2/get_all_items");
     return (await res.json()) as Items;
@@ -41,17 +45,23 @@ const toggleFavorite = (item: string) => {
 
 
 const selectItem = (item: string) => {
+
     if (selectedItem.value === item) {
         return;
     }
 
     selectedItem.value = item;
+
 }
-
+function set_market_loading() {
+    marketData.value.forEach(market => {
+        market.loading = true
+    })
+}
 const search_in_market = async () => {
-    const id = await find_id(searchQuery.value)
-    if (!id) return
+    const id = await find_id(searchQuery.value).catch(() => { return })
 
+    set_market_loading()
     const markets = [
         { id: 10000002, name: "Jita" },
         { id: 10000030, name: "Rens" },
@@ -64,7 +74,7 @@ const search_in_market = async () => {
         const res = await fetch(`https://esi.evetech.net/latest/markets/${market.id}/orders/?type_id=${id}&order_type=sell&language=en-us`)
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
         const data = await res.json()
-        return { market: market.name, data: data }
+        return { loading: false, market: market.name, data: data }
     })
 
     const results = await Promise.all(promises)
@@ -99,7 +109,7 @@ provide<Favorite>('Favourite', {
 })
 
 
-const type_search = ref<string>("")
+const type_search = ref<SearchType>(SearchType.Base)
 
 onMounted(async () => {
     favoriteItems.value = favoritesManager.getFavorites();
@@ -114,7 +124,7 @@ onMounted(async () => {
     const fuzzySearcher = new FuzzySearcher(all_names.value!.map((item) => item.name));
     time_watch(
         (query: string) => {
-            if (type_search.value != 'base') return
+            if (type_search.value == SearchType.Market) return
             if (query.length < 3) {
                 itemNames.value = [];
                 return;
@@ -139,15 +149,17 @@ onMounted(async () => {
     <section class="bg-white min-h-screen flex md:flex-row flex-col">
         <section
             class="text-center flex flex-col items-left md:min-w-[310px] md:max-w-2/12 max-md:w-full text-sm bg-gray-50">
-            <div class="flex  flex-row mt-8 justify-around">
-                <button class="btn" @click="type_search = 'base'">База</button>
-                <button class="btn" @click="type_search = 'shop'">Магазин</button>
+            <div class="flex flex-row mt-8 justify-around p-1">
+                <button class="btn hover:bg-gray-200 py-2 px-4 rounuded"
+                    @click="type_search = SearchType.Base">База</button>
+                <button class="btn hover:bg-gray-200 py-2 px-4 rounded"
+                    @click="type_search = SearchType.Market">Магазин</button>
             </div>
-            <template v-if="type_search == 'base'">
+            <template v-if="type_search == SearchType.Base">
                 <div class="flex flex-col  mb-8">
                     <label for="search">Поиск в базе</label>
                     <input id="search" type="text" placeholder="Search..." v-model="searchQuery"
-                        class="border border-y-slate-500 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-white rounded-md px-2 py-1" />
+                        class="mt-2 border border-y-slate-500 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-white rounded-md px-2 py-1" />
                     <p class="text-sm text-gray-500 pointer-events-none">
                         {{ itemNames.length }}/{{ MAX_COUNT_ITEMS }}
                         <span class="pointer-events-auto cursor-pointer" @click="addItem()"
@@ -156,23 +168,25 @@ onMounted(async () => {
                 </div>
                 <LeftPanel v-if="favoriteItems" :favoriteItems="favoriteItems" @selectItem="selectItem" />
             </template>
-            <template v-else-if="type_search == 'shop'">
+            <template v-else-if="type_search == SearchType.Market">
+                <label for="search">Поиск в 5 магазинах по названию</label>
                 <input id="search" type="text" placeholder="Search..." v-model="searchQuery"
-                    class="border border-y-slate-500 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-white rounded-md px-2 py-1" />
-                <button @click="search_in_market" class="btn">Поиск</button>
+                    class="mt-2 border border-y-slate-500 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-white rounded-md px-2 py-1" />
+                <button @click="search_in_market" class="btn hover:bg-gray-200 py-2 px-4 rounded w-1/2 mx-auto">Начать
+                    поиск</button>
                 <div class="flex flex-col  mb-8">
                     <div v-for="item in marketData">
-                        <p class="text-sm text-gray-500 pointer-events-none">
+                        <p class="text-sm text-gray-500 pointer-events-none" v-if="!item.loading">
                             {{ item.market }}: {{ item.data.length }}
+                        </p>
+                        <p class="text-sm text-gray-500 pointer-events-none" v-else>
+                            {{ item.market }}: Загрузка
                         </p>
                     </div>
                 </div>
             </template>
         </section>
         <section class="flex flex-col items-center w-full">
-            <div class="w-1/4 bg-gray-300 rounded-md px-4 py-2">
-                <CountItems :count="all_names?.length" />
-            </div>
             <div id="search" class="w-3/4 bg-white rounded-md px-4 py-2" v-if="itemNames.length">
                 <ul>
                     <li v-for="name in itemNames" :key="name">
@@ -189,8 +203,8 @@ onMounted(async () => {
                     </li>
                 </ul>
             </div>
-            <section id="selected-item" class="w-full bg-white rounded-md px-4 py-2" v-if="selectedItem">
-                <div>
+            <section id="selected-item" class="w-full bg-white rounded-md px-4 py-2">
+                <div v-if="type_search == SearchType.Base &&selectedItem">
                     <BaseToolbar>
                         <template #left>
                             <p>Выбранный предмет</p>
@@ -204,6 +218,11 @@ onMounted(async () => {
                         </template>
                     </BaseToolbar>
                     <BarChart :name_item="selectedItem"></BarChart>
+                </div>
+                <div class="grid grid-cols-2">
+                    <template v-for="item in marketData">
+                        <RegionMarketInfo :info="item" v-if="item.data.length>0"/>
+                    </template>
                 </div>
             </section>
             <section id="Favorites" class="w-full bg-white rounded-md px-4 py-2 " v-if="favoriteItems.length">

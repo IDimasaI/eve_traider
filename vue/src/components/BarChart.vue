@@ -16,7 +16,7 @@
         </div>
         <div class="stat-item">
           <span class="stat-label">Средняя цена:</span>
-          <span class="stat-value">{{ formatCurrency(averagePrice) }}</span>
+          <span class="stat-value average-price">{{ formatCurrency(averagePrice) }}</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Минимальная:</span>
@@ -27,8 +27,8 @@
           <span class="stat-value max-price">{{ formatCurrency(maxPrice) }}</span>
         </div>
       </div>
-      <div id="more">
-        <button class="more-button" @click="toggleMore">Показать больше</button>
+      <div id="more" class="text-center">
+        <button class="more-button hover:bg-gray-100 py-2 px-4 rounded my-1" @click="toggleMore">Показать больше</button>
         <div v-if="moreInfo.open" class="more-info flex flex-col">
           <div class="w-full">
             <select v-model="selectedPeriod" class="w-full">
@@ -76,7 +76,6 @@ type PriceItem = {
   day: string;
 }
 
-
 type MoreData = {
   open: boolean;
   periods: string[];
@@ -84,10 +83,6 @@ type MoreData = {
   volume_per_month: number[];
   order_counts: number[]
 }
-
-
-
-
 
 const props = defineProps<{
   name_item: string;
@@ -105,7 +100,7 @@ const moreInfo = ref<MoreData>({
   order_counts: []
 })
 
-const id_item = await find_id(props.name_item)
+let id_item = await find_id(props.name_item)
 
 const toggleMore = async () => {
   moreInfo.value.open = !moreInfo.value.open
@@ -187,9 +182,7 @@ const formatDeltaOrderVolume = (order: number, volume: number): string => {
 }
 
 
-
 const generateData = async (): Promise<void> => {
-
 
   let prices = await get_price(id_item)
 
@@ -300,8 +293,6 @@ const chartData = computed<ChartData<'line'>>(() => ({
   ]
 }))
 
-
-
 const chartOptions = ref<ChartOptions<'line'>>({
   responsive: true,
   maintainAspectRatio: false,
@@ -384,6 +375,7 @@ const chartOptions = ref<ChartOptions<'line'>>({
 
 onMounted(async () => {
   watch(() => props.name_item, async () => {
+    id_item = await find_id(props.name_item)
     await generateData()
   }, { immediate: false })
 
@@ -491,6 +483,10 @@ select:focus {
 
 .min-price {
   color: #f44336;
+}
+
+.average-price {
+  color: #bcbe17;
 }
 
 .max-price {

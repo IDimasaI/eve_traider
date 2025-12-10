@@ -6,7 +6,7 @@
             <button @click="toggleCategory(getFullPath(categoryName))" class="category-button">
                 <Arrow_open v-if="isExpanded(getFullPath(categoryName))" />
                 <Arrow_close v-else />
-                <span class="ml-2"> {{ categoryName }}</span>
+                <span class="ml-2">{{ categoryName }}</span>
             </button>
 
             <!-- Содержимое категории -->
@@ -18,15 +18,15 @@
                 </div>
                 <!-- Если это массив, показываем элементы -->
                 <div v-else-if="Array.isArray(items)" class="items">
-                    <div v-for="(item, index) in items" :key="index" class="item">
+                    <div v-for="(item, index) in items" :key="index" class="item odd:bg-gray-200">
                         <!-- Проверяем, является ли элемент объектом или примитивом -->
                         <div v-if="typeof item === 'object' && item !== null" class="nested-object">
                             <TreeCategory :json="{ [`обьект в массиве. ОШИБКА СИНТАКСИСА`]: item }"  
                                 :parent-path="getFullPath(categoryName)" :expanded-paths="expandedPaths"
                                 @toggle="handleToggle" @selectItem="selectItem"/>
                         </div>
-                        <div v-else>
-                            <button class="item cursor-pointer hover:bg-gray-100" @click="selectItem(item)">{{ item
+                        <div v-else class="flex justify-between">
+                            <button class="item cursor-pointer hover:bg-blue-100 " @click="selectItem(item)">{{ item
                             }}</button>
                             <Fovorite :name_item="item"  />
                         </div>

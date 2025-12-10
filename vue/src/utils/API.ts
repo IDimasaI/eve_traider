@@ -13,7 +13,6 @@ export async function find_id(name: string): Promise<number | null> {
       const items: ItemIdMap[] = JSON.parse(stored)
       const foundItem = items.find(item => item.name === name)
       if (foundItem) {
-
         return foundItem.id
       }
     } catch (e) {
@@ -39,4 +38,10 @@ export async function find_id(name: string): Promise<number | null> {
     console.error("Ошибка при запросе ID:", error)
     return null
   }
+}
+
+export type MarketData = {
+    loading: boolean;
+    market: string;
+    data: any
 }

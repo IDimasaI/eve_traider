@@ -1,4 +1,6 @@
+build/data/webview2
 .env
 node_modules
 *.sum
 *.json
+*.mp3

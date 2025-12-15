@@ -1,0 +1,20 @@
+[package]
+name = "launcher"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dpi = "0.1"
+wry = { version = "0.53.5", features = ["drag-drop", "protocol", "os-webview"] }
+winit = "0.30"
+dotenvy = "0.15.7"
+#tao = "0.34.5"
+
+[package.metadata.docs.rs]
+no-default-features = true
+features = ["drag-drop", "protocol", "os-webview"]
+targets = [
+
+  "x86_64-pc-windows-msvc",
+
+]

@@ -1,0 +1,100 @@
+use serde_json::{Value, json};
+use std::process::Command;
+use wry::application::window::WindowBuilder;
+use wry::webview::WebViewBuilder;
+
+fn main() -> wry::Result<()> {
+    let event_loop = wry::application::event_loop::EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("EVE Price Tracker")
+        .build(&event_loop)?;
+
+    // Путь к обновлятелю захватываем в замыкание
+    let updater_path = std::path::PathBuf::from("./updater.exe");
+
+    let _webview = WebViewBuilder::new(window)?
+        .with_url("http://localhost:6969")?
+        .with_ipc_handler(move |request| {
+            // Получаем тело сообщения из JavaScript
+            let message = request.body();
+            println!("📨 Получено IPC сообщение: {}", message);
+
+            // Парсим JSON сообщение
+            match parse_ipc_message(message) {
+                Ok(IpcCommand::CheckUpdate { silent }) => {
+                    println!("🔍 Запуск проверки обновлений");
+
+                    // Запускаем обновлятель в отдельном потоке
+                    let updater = updater_path.clone();
+                    std::thread::spawn(move || {
+                        let result = Command::new(&updater).arg("--check").output();
+
+                        match result {
+                            Ok(output) => {
+                                let status = if output.status.success() {
+                                    "available"
+                                } else {
+                                    "none"
+                                };
+                                println!("Обновление: {}", status);
+
+                                // Для отправки ответа в JS нужно сохранить window или использовать другие методы
+                            }
+                            Err(e) => eprintln!("Ошибка: {}", e),
+                        }
+                    });
+                }
+
+                Ok(IpcCommand::InstallUpdate { version }) => {
+                    println!("🚀 Установка версии: {}", version);
+
+                    // Запускаем установку
+                    #[cfg(target_os = "windows")]
+                    let _ = Command::new("cmd")
+                        .args(&["/C", "start", "updater.exe", "--install", &version])
+                        .spawn();
+
+                    #[cfg(not(target_os = "windows"))]
+                    let _ = Command::new("./updater.exe")
+                        .arg("--install")
+                        .arg(&version)
+                        .spawn();
+                }
+
+                Ok(IpcCommand::ExecuteCommand { cmd, args }) => {
+                    // ВАЖНО: валидация команд для безопасности!
+                    let allowed_commands = ["notepad", "calc", "explorer"];
+                    if allowed_commands.contains(&cmd.as_str()) {
+                        let _ = Command::new(cmd).args(args).spawn();
+                    }
+                }
+
+                Err(e) => eprintln!("Ошибка парсинга: {}", e),
+            }
+        })
+        .build()?;
+
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = tao::event_loop::ControlFlow::Wait;
+        match event {
+            tao::event::Event::WindowEvent {
+                event: tao::event::WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = tao::event_loop::ControlFlow::Exit,
+            _ => (),
+        }
+    });
+}
+
+// Структуры для парсинга команд
+#[derive(Debug, serde::Deserialize)]
+#[serde(tag = "type", content = "data")]
+enum IpcCommand {
+    CheckUpdate { silent: bool },
+    InstallUpdate { version: String },
+    ExecuteCommand { cmd: String, args: Vec<String> },
+}
+
+fn parse_ipc_message(msg: &str) -> Result<IpcCommand, serde_json::Error> {
+    serde_json::from_str(msg)
+}

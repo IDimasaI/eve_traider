@@ -1,6 +1,6 @@
 go 1.24.4
 
 use (
-	./local_server
-	./updater
+	./go-backend
+	./go-updater
 )

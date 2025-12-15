@@ -3,6 +3,8 @@
 use dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 
 use dotenvy::from_filename;
+use std::fs::File;
+
 use std::path::PathBuf;
 use std::process::Command;
 use winit::{
@@ -12,7 +14,7 @@ use winit::{
     platform::windows::IconExtWindows,
     window::{Icon, Window, WindowId},
 };
-use wry::{Rect, WebViewBuilder, WebViewExtWindows};
+use wry::{Rect, WebViewBuilder};
 const DEFAULT_USER_DATA_FOLDER: &str = "data/webview2";
 const RESOURCES_FOLDER: &str = "data/resources";
 
@@ -167,15 +169,7 @@ impl ApplicationHandler for State {
             WindowEvent::CursorEntered { .. } => {
                 println!("Cursor entered window");
             }
-            WindowEvent::KeyboardInput {
-                device_id,
-                event,
-                is_synthetic,
-            } => {
-                if let Some(key) = event.text {
-                    println!("Key {:?} pressed", key);
-                }
-            }
+
             _ => {}
         }
     }
@@ -226,10 +220,23 @@ fn main() -> wry::Result<()> {
     .expect("Failed to load env file");
 
     // Updater
-    unsafe {
-        std::env::set_var("WEB_SERVER_ADDR", "http://localhost:5173");
+    if DEV_MODE {
+        unsafe {
+            std::env::set_var("WEB_SERVER_ADDR", "http://localhost:5173");
+        }
+    } else {
+        if File::open("data/config.json").is_err() {
+            Command::new(if DEV_MODE {
+                "./../build/updater.exe"
+            } else {
+                "./updater.exe"
+            })
+            .arg("-command")
+            .arg("download")
+            .spawn()
+            .expect("Failed to start update process");
+        }
     }
-
     let event_loop = EventLoop::new().unwrap();
 
     let mut state = State::default();

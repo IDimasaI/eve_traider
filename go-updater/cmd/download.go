@@ -169,22 +169,23 @@ func Download(isDev bool) {
 	if isDev {
 		config_path = "./../build/data/config.json"
 	} else {
-		config_path = "./data/config.json"
+		config_path = "data/config.json"
 	}
 
-	var config Config
+	// Создаем директорию
+	os.MkdirAll(filepath.Dir(config_path), 0755)
+
+	// Пробуем прочитать, если не получается - создаем новый
 	config, err := utils.ReadJson[Config](config_path)
 	if err != nil {
-		if err == os.ErrNotExist {
-			log.Println("Config file not found")
-			config = Config{Version: "0.0"}
-			os.MkdirAll(filepath.Dir(config_path), 0755)
-			utils.WriteJson[Config](config_path, config)
-		} else {
-			log.Println("Error reading config file:", err)
+		log.Printf("Error reading config: %v, creating default", err)
+		config = Config{Version: "0.0"}
+		if err := utils.WriteJson[Config](config_path, config); err != nil {
+			log.Printf("Failed to create config: %v", err)
 			return
 		}
 	}
+
 	log.Println("Current version:", config.Version)
 
 	release, err := getLatestRelease("IDimasaI", "eve_traider")

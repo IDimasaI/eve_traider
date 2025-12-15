@@ -57,25 +57,44 @@ func downloadRelease(release *Release) error {
 	err = os.WriteFile(fmt.Sprintf("release-%s.zip", release.TagName), body, 0644)
 	return err
 }
+func extractFile(zipFile *zip.File, targetPath string) error {
+	fileInfo := zipFile.FileInfo()
+
+	src, err := zipFile.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	// Создаем файл с правильными правами
+	dst, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fileInfo.Mode())
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return err
+	}
+
+	// Сохраняем время модификации
+	return os.Chtimes(targetPath, fileInfo.ModTime(), fileInfo.ModTime())
+}
 
 func unpackZip(zipPath, downloadPath string) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("не удалось открыть архив: %w", err)
+		return err
 	}
 	defer reader.Close()
 
-	// Создаем целевую папку, если её нет
-	if err := os.MkdirAll(downloadPath, os.ModePerm); err != nil {
-		return fmt.Errorf("не удалось создать папку назначения: %w", err)
-	}
+	os.MkdirAll(downloadPath, 0755)
 
 	foundBuildFolder := false
 	buildPrefix := ""
 
-	// Сначала находим правильный префикс пути к папке build
+	// Находим build папку
 	for _, file := range reader.File {
-		// Ищем файлы/папки, содержащие "/build/" в пути
 		idx := strings.Index(file.Name, "/build/")
 		if idx != -1 {
 			buildPrefix = file.Name[:idx+len("/build/")]
@@ -84,9 +103,7 @@ func unpackZip(zipPath, downloadPath string) error {
 		}
 	}
 
-	// Если не нашли "/build/", возможно папка build в корне архива?
 	if !foundBuildFolder {
-		// Проверяем, есть ли файлы, начинающиеся с "build/"
 		for _, file := range reader.File {
 			if strings.HasPrefix(file.Name, "build/") {
 				buildPrefix = "build/"
@@ -97,62 +114,48 @@ func unpackZip(zipPath, downloadPath string) error {
 	}
 
 	if !foundBuildFolder {
-		return fmt.Errorf("папка 'build' не найдена в архиве")
+		return fmt.Errorf("папка 'build' не найдена")
 	}
 
-	// Теперь извлекаем только содержимое папки build
+	// Список файлов, которые могут быть запущены
+	runningExecutables := map[string]bool{
+		"launcher.exe": true,
+		"updater.exe":  true,
+	}
+
 	for _, file := range reader.File {
-		// Пропускаем файлы вне папки build
-		if !strings.Contains(file.Name, buildPrefix) || strings.Contains(file.Name, "updater") {
+		if !strings.Contains(file.Name, buildPrefix) {
 			continue
 		}
 
-		// Получаем относительный путь внутри build
 		relPath := strings.TrimPrefix(file.Name, buildPrefix)
-
-		// Пропускаем саму папку build (пустой относительный путь)
 		if relPath == "" {
 			continue
 		}
 
 		targetPath := filepath.Join(downloadPath, relPath)
+		fileName := filepath.Base(targetPath)
 
-		// Обрабатываем папки
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(targetPath, os.ModePerm); err != nil {
-				return fmt.Errorf("не удалось создать папку: %w", err)
-			}
+		// Проверяем, является ли файл запущенным исполняемым файлом
+		if runningExecutables[strings.ToLower(fileName)] {
+			// Для запущенных файлов создаем версию с суффиксом .new
+			continue
+			newPath := targetPath + ".new"
+			log.Printf("Файл %s запущен, создаем временную версию %s", fileName, filepath.Base(newPath))
+			targetPath = newPath
+		}
+
+		fileInfo := file.FileInfo()
+
+		if fileInfo.IsDir() {
+			os.MkdirAll(targetPath, fileInfo.Mode())
 			continue
 		}
 
-		// Обрабатываем файлы
-		// Создаем родительские папки для файла
-		if err := os.MkdirAll(filepath.Dir(targetPath), os.ModePerm); err != nil {
-			return fmt.Errorf("не удалось создать родительские папки: %w", err)
-		}
+		os.MkdirAll(filepath.Dir(targetPath), 0755)
 
-		// Открываем файл в архиве
-		srcFile, err := file.Open()
-		if err != nil {
-			return fmt.Errorf("не удалось открыть файл в архиве: %w", err)
-		}
-
-		// Создаем файл на диске
-		dstFile, err := os.Create(targetPath)
-		if err != nil {
-			srcFile.Close()
-			return fmt.Errorf("не удалось создать файл: %w", err)
-		}
-
-		// Копируем содержимое
-		_, err = io.Copy(dstFile, srcFile)
-
-		// Закрываем файлы в правильном порядке
-		srcFile.Close()
-		dstFile.Close()
-
-		if err != nil {
-			return fmt.Errorf("ошибка копирования: %w", err)
+		if err := extractFile(file, targetPath); err != nil {
+			return fmt.Errorf("ошибка извлечения %s: %w", relPath, err)
 		}
 	}
 
@@ -220,5 +223,12 @@ func Download(isDev bool) {
 		fmt.Println("Error:", err)
 		return
 	}
+
+	err = utils.WriteJson(config_path, Config{Version: release.TagName})
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
 	fmt.Printf("Latest release: %s (%s)\n", release.Name, release.TagName)
 }

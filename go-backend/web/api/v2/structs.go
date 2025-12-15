@@ -35,7 +35,6 @@ type PriceEntry struct {
 }
 
 type Stats struct {
-	Status        string
-	Timestamp     string
-	CURRENT_BUILD string
+	Status    string
+	Timestamp string
 }

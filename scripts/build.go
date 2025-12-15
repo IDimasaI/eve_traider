@@ -24,7 +24,7 @@ func main() {
 
 	// Основной бекенд
 	exec.Command("go", "build", "-C", "./go-backend", "-ldflags", "-H=windowsgui", "-o", "./../build/go-backend.exe").Run()
-
+	exec.Command("go", "build", "-C", "./go-backend", "-ldflags", "", "-o", "./../build/go-backend_no_gui.exe").Run()
 	// Обновлятор, с зашитой версией
 	exec.Command("go", "build", "-C", "./go-updater", "-ldflags", "", "-o", "./../build/updater.exe").Run()
 

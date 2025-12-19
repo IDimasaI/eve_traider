@@ -67,7 +67,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Chart, registerables, type ChartData, type ChartOptions } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { find_id } from '../utils/API'
-import { CurrentTheme, Themes, ToggleTheme } from '../composables/Theme'
+import { CurrentTheme, Themes } from '../composables/Theme'
 // Регистрируем компоненты Chart.js 
 Chart.register(...registerables)
 

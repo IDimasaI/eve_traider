@@ -138,11 +138,11 @@ func unpackZip(zipPath, downloadPath string) error {
 
 		// Проверяем, является ли файл запущенным исполняемым файлом
 		if runningExecutables[strings.ToLower(fileName)] {
-			// Для запущенных файлов создаем версию с суффиксом .new
-
-			newPath := targetPath + ".new"
-			log.Printf("Файл %s запущен, создаем временную версию %s", fileName, filepath.Base(newPath))
-			targetPath = newPath
+			if os.Rename(targetPath, targetPath+".old") != nil {
+				log.Printf("Ошибка переименования %s: %v", fileName, err)
+			}
+			
+			
 		}
 
 		fileInfo := file.FileInfo()
@@ -157,10 +157,6 @@ func unpackZip(zipPath, downloadPath string) error {
 		if err := extractFile(file, targetPath); err != nil {
 			return fmt.Errorf("ошибка извлечения %s: %w", relPath, err)
 		}
-
-		os.Rename(targetPath, targetPath+".old")
-
-		os.Rename(targetPath+".new", targetPath)
 
 	}
 

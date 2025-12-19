@@ -122,6 +122,10 @@ func unpackZip(zipPath, downloadPath string) error {
 		"launcher.exe":          true,
 		"updater.exe":           true,
 	}
+	oldsDir := "./data/olds"
+	if err := os.MkdirAll(oldsDir, 0755); err != nil {
+		return fmt.Errorf("не удалось создать папку архивов: %v", err)
+	}
 
 	for _, file := range reader.File {
 		if !strings.Contains(file.Name, buildPrefix) {
@@ -138,11 +142,10 @@ func unpackZip(zipPath, downloadPath string) error {
 
 		// Проверяем, является ли файл запущенным исполняемым файлом
 		if runningExecutables[strings.ToLower(fileName)] {
-			if os.Rename(targetPath, targetPath+".old") != nil {
+			oldFilePath := filepath.Join(oldsDir, fileName+".old")
+			if err := os.Rename(targetPath, oldFilePath); err != nil {
 				log.Printf("Ошибка переименования %s: %v", fileName, err)
 			}
-			
-			
 		}
 
 		fileInfo := file.FileInfo()

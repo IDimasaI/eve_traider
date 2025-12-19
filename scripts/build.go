@@ -13,7 +13,7 @@ import (
 
 var cwd, _ = os.Getwd()
 
-const NEW_VERSION_BUILD string = "v0.6"
+const NEW_VERSION_BUILD string = "v0.7"
 
 func main() {
 

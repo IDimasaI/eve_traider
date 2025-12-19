@@ -208,13 +208,22 @@ func StartHTTPServer(ctx context.Context, errorChan chan error) {
 
 	//техническая информация
 	{
-		mux.HandleFunc("/api/v2/status", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
+		Update_Status := v2.New_Update_Status()
+		mux.HandleFunc("/api/v2/update_status", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				if err := Update_Status.Update_Status(w, r); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+					return
+				}
+			} else {
+				w.Header().Set("Content-Type", "application/json")
 
-			stats := v2.Get_status_update()
+				status := Update_Status.Get_Update_Status()
 
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(stats)
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(status)
+			}
 		})
 	}
 

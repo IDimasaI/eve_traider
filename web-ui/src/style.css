@@ -1,1 +1,7 @@
 @import "tailwindcss";
+@import "./BarChart.css";
+.break-spaces {
+    white-space: normal;
+    width: min-content;
+}
+

@@ -5,7 +5,17 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
+
+type Config struct {
+	Version string `json:"version"`
+}
+
+func IsDev() bool {
+	temp, _ := os.Executable()
+	return strings.Contains(temp, os.TempDir()) || strings.Contains(temp, "\\Local\\go-build")
+}
 
 // readFile читает содержимое файла и возвращает его в виде []byte.
 // Если происходит ошибка, возвращает её вторым аргументом.

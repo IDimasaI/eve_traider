@@ -1,11 +1,11 @@
 import { createWebHistory, createRouter } from 'vue-router'
 
 import HomeView from './index.vue'
-import AboutView from './new.vue'
+import NewIndex from './new.vue'
 
 const routes = [
-  { path: '/new', component: HomeView },
-  { path: '/', component: AboutView },
+  { path: '/old', component: HomeView },
+  { path: '/', component: NewIndex },
 ]
 
 export const router = createRouter({

@@ -1,5 +1,5 @@
 <template>
     <section class="flex-col w-[300px]">
-        <div class="mt-4 mx-4 bg-amber-50 flex flex-col w-[300px] min-h-screen"><slot></slot></div>
+        <div class="mx-4 bg-[#292929] flex flex-col min-h-screen rounded-md"><slot></slot></div>
     </section>
 </template>

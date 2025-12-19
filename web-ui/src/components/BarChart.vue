@@ -1,5 +1,6 @@
 <template>
-  <div class="price-chart-container">
+  <div class="price-chart-container" :class="{ 'dark-theme': isDarkTheme }">
+   
     <div class="chart-header">
       <h3>Динамика цен за месяц<small>(за все время, приложение еще не проработало и 20 дней).</small></h3>
     </div>
@@ -28,23 +29,23 @@
         </div>
       </div>
       <div id="more" class="text-center">
-        <button class="more-button hover:bg-gray-100 py-2 px-4 rounded my-1" @click="toggleMore">Показать
+        <button class="more-button" @click="toggleMore">Показать
           больше</button>
         <div v-if="moreInfo.open" class="more-info flex flex-col">
           <div class="w-full">
-            <select v-model="selectedPeriod" class="w-full">
+            <select v-model="selectedPeriod" class="period-select">
               <option v-for="period in moreInfo.periods" :key="period" :value="period">{{ period }}</option>
             </select>
           </div>
           <section class="w-full flex flex-col  gap-1 justify-evenly text-xs">
-            <div class="grid grid-cols-4 w-full">
+            <div class="grid grid-cols-4 w-full table-header">
               <li>Дата</li>
               <li>Объем</li>
               <li>Заказов</li>
               <li>~Обьем заказов</li>
             </div>
             <template v-for="(_, index) in filteredData.times" :key="index">
-              <div class="grid grid-cols-4 w-full odd:bg-gray-100">
+              <div class="grid grid-cols-4 w-full table-rows">
                 <li>{{ filteredData.times[index] }}</li>
                 <li>{{ filteredData.volume_per_month[index] }}</li>
                 <li>{{ filteredData.order_counts[index] }}</li>
@@ -66,6 +67,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Chart, registerables, type ChartData, type ChartOptions } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { find_id } from '../utils/API'
+import { CurrentTheme, Themes, ToggleTheme } from '../composables/Theme'
 // Регистрируем компоненты Chart.js 
 Chart.register(...registerables)
 
@@ -90,15 +92,18 @@ const props = defineProps<{
 }>()
 
 const SKIP_EVERY_X_ROW = ref<number>(1)
-//const isDaily = ref<boolean>(true)
 const dailyPrices = ref<PriceItem[]>([])
-//const weeklyPrices = ref<PriceItem[]>([])
 const moreInfo = ref<MoreData>({
   open: false,
   periods: [],
   times: [],
   volume_per_month: [],
   order_counts: []
+})
+
+// Добавляем состояние для темы
+const isDarkTheme = computed<boolean>(() => {
+  return CurrentTheme.value === Themes.dark
 })
 
 let id_item = await find_id(props.name_item)
@@ -109,9 +114,7 @@ const toggleMore = async () => {
     if (!id_item) return
     await getMoreData(id_item, 10000002)
   }
-  console.log(moreInfo.value)
 }
-
 
 async function getMoreData(id: number, region_id: number): Promise<void> {
   const res = await fetch(`https://esi.evetech.net/markets/${region_id}/history?type_id=${id}`)
@@ -119,7 +122,6 @@ async function getMoreData(id: number, region_id: number): Promise<void> {
   const data = await res.json()
 
   moreInfo.value.periods = get_periods(data.map((item: any) => item.date))
-
   moreInfo.value.times = data.map((item: any) => item.date)
   moreInfo.value.volume_per_month = data.map((item: any) => item.volume)
   moreInfo.value.order_counts = data.map((item: any) => item.order_count)
@@ -136,14 +138,12 @@ function get_periods(times: string[]): string[] {
     // Пропускаем невалидные даты
     if (isNaN(date.getTime())) continue
 
-    // Месяц: 0=январь, 11=декабрь → нужно +1
     const month = (date.getMonth() + 1).toString().padStart(2, '0')
     const year = date.getFullYear()
 
     periodsSet.add(`${year}-${month}`)
   }
 
-  // Сортируем периоды (опционально)
   return Array.from(periodsSet).sort()
 }
 
@@ -165,7 +165,6 @@ const filteredData = computed(() => {
   for (let i = 0; i < moreInfo.value.times.length; i++) {
     const time = moreInfo.value.times[i]
     if (time) {
-      // Извлекаем год и месяц из time
       const parts = time.split('-')
       const yearMonth = parts.slice(0, 2).join('-')
       if (yearMonth === selectedPeriod.value) {
@@ -182,11 +181,8 @@ const formatDeltaOrderVolume = (order: number, volume: number): string => {
   return `${(volume / order).toFixed(1)}`
 }
 
-
 const generateData = async (): Promise<void> => {
-
   let prices = await get_price(id_item)
-
   let iter = 4
 
   if (prices[0] && prices[0].error) {
@@ -204,7 +200,6 @@ const generateData = async (): Promise<void> => {
     }
   }
 
-  // Если prices - массив
   if (Array.isArray(prices)) {
     const sortedPrices = [...prices].sort((a, b) => {
       const dateA = new Date(a.timestamp).getTime()
@@ -230,8 +225,6 @@ const generateData = async (): Promise<void> => {
     dailyPrices.value = filteredPrices
   }
 }
-
-
 
 const get_price = async (id: number | null): Promise<PriceItem[]> => {
   if (!id) {
@@ -274,21 +267,25 @@ const currentPrice = computed<number>(() => {
   return lastItem ? parseFloat(lastItem.price) : 0
 })
 
+// Динамические цвета для графика в зависимости от темы
+const chartLineColor = computed(() => isDarkTheme.value ? '#4CAF50' : '#2E7D32')
+const chartBgColor = computed(() => isDarkTheme.value ? 'rgba(76, 175, 80, 0.15)' : 'rgba(76, 175, 80, 0.1)')
+
 const chartData = computed<ChartData<'line'>>(() => ({
   labels: dailyPrices.value.map((item, i) => {
-  return i%6==0 ? item.day : ``
+    return i % 6 == 0 ? item.day : ``
   }),
   datasets: [
     {
       label: 'Цена, Isk',
       data: dailyPrices.value.map(item => parseFloat(item.price)),
-      borderColor: '#4CAF50',
-      backgroundColor: 'rgba(76, 175, 80, 0.1)',
+      borderColor: chartLineColor.value,
+      backgroundColor: chartBgColor.value,
       borderWidth: 2,
       fill: true,
       tension: 0.4,
-      pointBackgroundColor: '#4CAF50',
-      pointBorderColor: '#ffffff',
+      pointBackgroundColor: chartLineColor.value,
+      pointBorderColor: isDarkTheme.value ? '#1e293b' : '#ffffff',
       pointBorderWidth: 2,
       pointRadius: 4,
       pointHoverRadius: 6
@@ -296,21 +293,27 @@ const chartData = computed<ChartData<'line'>>(() => ({
   ]
 }))
 
-const chartOptions = ref<ChartOptions<'line'>>({
+const chartOptions = computed<ChartOptions<'line'>>(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
       display: true,
-      position: 'top'
+      position: 'top',
+      labels: {
+        color: isDarkTheme.value ? '#e2e8f0' : '#333',
+        font: {
+          size: 14
+        }
+      }
     },
     tooltip: {
       mode: 'index',
       intersect: false,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
-      titleColor: '#ffffff',
-      bodyColor: '#ffffff',
-      borderColor: 'rgba(255, 255, 255, 0.2)',
+      backgroundColor: isDarkTheme.value ? 'rgba(30, 41, 59, 0.95)' : 'rgba(0, 0, 0, 0.8)',
+      titleColor: isDarkTheme.value ? '#e2e8f0' : '#ffffff',
+      bodyColor: isDarkTheme.value ? '#e2e8f0' : '#ffffff',
+      borderColor: isDarkTheme.value ? 'rgba(148, 163, 184, 0.3)' : 'rgba(255, 255, 255, 0.2)',
       borderWidth: 1,
       padding: 12,
       boxPadding: 6,
@@ -333,19 +336,6 @@ const chartOptions = ref<ChartOptions<'line'>>({
         label: (context: any) => {
           return `💰 ${formatCurrency(context?.raw)}`
         },
-        // afterLabel: (context: any) => {
-        //   const index = context.dataIndex
-        //   const item = dailyPrices.value[index]
-        //   if (item && item.timestamp) {
-        //     const date = new Date(item.timestamp)
-        //     return `⏱️ Время обновления: ${date.toLocaleTimeString('ru-RU', {
-        //       hour: '2-digit',
-        //       minute: '2-digit',
-        //       second: '2-digit'
-        //     })}`
-        //   }
-        //   return ''
-        // }
       }
     }
   },
@@ -353,9 +343,10 @@ const chartOptions = ref<ChartOptions<'line'>>({
     y: {
       beginAtZero: false,
       grid: {
-        color: 'rgba(0, 0, 0, 0.05)'
+        color: isDarkTheme.value ? 'rgba(148, 163, 184, 0.15)' : 'rgba(0, 0, 0, 0.05)'
       },
       ticks: {
+        color: isDarkTheme.value ? '#94a3b8' : '#666',
         callback: function (value: number | string) {
           if (typeof value === 'number') {
             return value.toLocaleString('ru-RU')
@@ -366,7 +357,10 @@ const chartOptions = ref<ChartOptions<'line'>>({
     },
     x: {
       grid: {
-        color: 'rgba(0, 0, 0, 0.05)'
+        color: isDarkTheme.value ? 'rgba(148, 163, 184, 0.15)' : 'rgba(0, 0, 0, 0.05)'
+      },
+      ticks: {
+        color: isDarkTheme.value ? '#94a3b8' : '#666'
       }
     }
   },
@@ -374,148 +368,17 @@ const chartOptions = ref<ChartOptions<'line'>>({
     intersect: false,
     mode: 'nearest'
   }
-})
+}))
 
 onMounted(async () => {
   watch(() => props.name_item, async () => {
     id_item = await find_id(props.name_item)
     await generateData()
+    if (id_item) {
+      await getMoreData(id_item, 10000002)
+    }
   }, { immediate: false })
 
   await generateData()
 })
 </script>
-
-<style scoped>
-.price-chart-container {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  font-family: 'Segoe UI', Arial, sans-serif;
-}
-
-.chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.chart-header h3 {
-  margin: 0;
-  color: #333;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.controls {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-select {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: white;
-  font-size: 14px;
-  cursor: pointer;
-  outline: none;
-  transition: border-color 0.3s;
-}
-
-select:focus {
-  border-color: #4CAF50;
-}
-
-.view-toggle {
-  padding: 8px 16px;
-  background: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s;
-}
-
-.view-toggle:hover {
-  background: #45a049;
-}
-
-.chart-wrapper {
-  height: 400px;
-  margin-bottom: 24px;
-}
-
-.chart-info {
-  border-top: 1px solid #eee;
-  padding-top: 20px;
-}
-
-.stats {
-  display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  min-width: 150px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: #333;
-}
-
-.min-price {
-  color: #f44336;
-}
-
-.average-price {
-  color: #bcbe17;
-}
-
-.max-price {
-  color: #4CAF50;
-}
-
-@media (max-width: 768px) {
-  .chart-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: flex-start;
-  }
-
-  .controls {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  select,
-  .view-toggle {
-    width: 100%;
-  }
-
-  .stats {
-    flex-direction: column;
-    align-items: center;
-  }
-}
-</style>

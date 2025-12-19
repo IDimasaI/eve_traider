@@ -5,11 +5,7 @@ use dpi::{LogicalPosition, LogicalSize, PhysicalSize};
 use dotenvy::from_filename;
 use std::fs::File;
 use std::path::PathBuf;
-use std::process::{Child, Command};
-
-use std::process::Stdio;
-use std::thread;
-use std::time::Duration;
+use std::process::Command;
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -18,6 +14,10 @@ use winit::{
     window::{Icon, Window, WindowId},
 };
 use wry::{Rect, WebViewBuilder};
+
+mod backend_manager;
+use backend_manager::BackendManager;
+
 const DEFAULT_USER_DATA_FOLDER: &str = "data/webview2";
 const RESOURCES_FOLDER: &str = "data/resources";
 
@@ -89,7 +89,7 @@ impl ApplicationHandler for State {
         let window = event_loop.create_window(attributes).unwrap();
 
         let webview = WebViewBuilder::new()
-            .with_devtools(false)
+            .with_devtools(true)
             .with_ipc_handler(move |msg| {
                 // Process message
                 let message = msg.body();
@@ -194,80 +194,6 @@ impl ApplicationHandler for State {
     }
 }
 
-struct BackendManager {
-    process: Option<Child>,
-}
-
-impl BackendManager {
-    fn new() -> Self {
-        Self { process: None }
-    }
-
-    fn start(&mut self) -> bool {
-        const MAX_ATTEMPTS: u32 = 10;
-
-        // if !std::path::Path::new("./go-backend.exe").exists() {
-        //     eprintln!("Backend executable not found!");
-        //     return false;
-        // }
-
-        for attempt in 1..=MAX_ATTEMPTS {
-            println!("Attempt {} to start backend...", attempt);
-
-            match Command::new("./go-backend.exe")
-                .arg("-debug")
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-            {
-                Ok(mut child) => {
-                    // Даем процессу время на запуск
-                    thread::sleep(Duration::from_millis(500));
-
-                    // Проверяем, не завершился ли процесс
-                    match child.try_wait() {
-                        Ok(Some(status)) => {
-                            eprintln!("Backend exited with status: {:?}", status);
-                            if attempt < MAX_ATTEMPTS {
-                                thread::sleep(Duration::from_millis(1000));
-                                continue;
-                            }
-                            return false;
-                        }
-                        Ok(None) => {
-                            println!("Backend started successfully!");
-                            self.process = Some(child);
-                            return true;
-                        }
-                        Err(e) => {
-                            eprintln!("Error: {}", e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to start backend: {}", e);
-                    if attempt < MAX_ATTEMPTS {
-                        thread::sleep(Duration::from_millis(2000));
-                    }
-                }
-            }
-        }
-
-        eprintln!("Failed to start backend after {} attempts", MAX_ATTEMPTS);
-        false
-    }
-}
-
-impl Drop for BackendManager {
-    fn drop(&mut self) {
-        if let Some(mut child) = self.process.take() {
-            let _ = child.kill();
-            let _ = child.wait();
-            println!("Backend process terminated.");
-        }
-    }
-}
-
 fn main() -> wry::Result<()> {
     #[cfg(any(
         target_os = "linux",
@@ -296,6 +222,7 @@ fn main() -> wry::Result<()> {
         PROD_ENV_PATH
     })
     .expect("Failed to load env file");
+    let mut backend_manager = BackendManager::new();
 
     // Updater
     if DEV_MODE {
@@ -304,15 +231,25 @@ fn main() -> wry::Result<()> {
         }
     } else {
         if File::open("data/config.json").is_err() {
-            Command::new(if DEV_MODE {
+            let status = Command::new(if DEV_MODE {
                 "./../build/updater.exe"
             } else {
                 "./updater.exe"
             })
             .arg("-command")
             .arg("download")
-            .spawn()
-            .expect("Failed to start update process");
+            .status() // Используем .status() чтобы дождаться завершения и получить код
+            .expect("Failed to start and wait for update process");
+
+            if !status.success() {
+                eprintln!("Updater failed with status: {}. Exiting.", status);
+                return Ok(());
+            }
+        }
+
+        if !backend_manager.start() {
+            eprintln!("Failed to start backend. Exiting.");
+            return Ok(());
         }
     }
 
@@ -320,11 +257,6 @@ fn main() -> wry::Result<()> {
 
     let mut state = State::default();
 
-    let mut backend_manager = BackendManager::new();
-    if !backend_manager.start() {
-        eprintln!("Failed to start backend. Exiting.");
-        return Ok(());
-    }
     event_loop.run_app(&mut state).unwrap();
 
     Ok(())

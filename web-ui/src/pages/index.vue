@@ -11,7 +11,7 @@ import { FavoritesManager } from "../utils/fovarites.ts";
 import { find_id } from "../utils/API.ts";
 
 
-import LeftPanel from "../components/LeftPanel.vue";
+import ItemsPanel from "../components/CategoryPanel.vue";
 import Fovorite from "../components/Favourite.vue";
 import BarChart from "../components/BarChart.vue";
 import RegionMarketInfo from "../components/RegionMarketInfo.vue";
@@ -121,7 +121,7 @@ onMounted(async () => {
         localStorage.setItem("items_id_name", JSON.stringify(all_names.value));
     }
 
-    const fuzzySearcher = new FuzzySearcher(all_names.value!.map((item) => item.name));
+    const fuzzySearcher = new FuzzySearcher(all_names.value!);
     time_watch(
         (query: string) => {
             if (type_search.value == SearchType.Market) return
@@ -166,7 +166,7 @@ onMounted(async () => {
                             title="добавить 10 максимальных предметов">+</span>
                     </p>
                 </div>
-                <LeftPanel v-if="favoriteItems" :favoriteItems="favoriteItems" @selectItem="selectItem" />
+                <ItemsPanel v-if="favoriteItems" :favoriteItems="favoriteItems" @selectItem="selectItem" />
             </template>
             <template v-else-if="type_search == SearchType.Market">
                 <label for="search">Поиск в 5 магазинах по названию</label>

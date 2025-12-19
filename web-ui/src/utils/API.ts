@@ -45,3 +45,18 @@ export type MarketData = {
     market: string;
     data: any
 }
+
+export type Items = {
+    name: string;
+    category: string;
+    id: number;
+}[];
+
+export type HashMapItems= {
+    [key: string]: Items
+}
+
+export async function get_all_items() {
+    const res = await fetch("/api/v2/get_all_items");
+    return (await res.json()) as Items;
+}

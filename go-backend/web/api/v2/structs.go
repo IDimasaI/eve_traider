@@ -33,8 +33,3 @@ type PriceEntry struct {
 	Price     float64   `json:"price"`
 	Market_id int       `json:"market_id"`
 }
-
-type Stats struct {
-	Status    string
-	Timestamp string
-}

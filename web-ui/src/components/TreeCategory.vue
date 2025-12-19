@@ -13,7 +13,7 @@
             <div v-if="isExpanded(getFullPath(categoryName))" class="category-content pl-3 border-l">
                 <!-- Если это объект (не массив), рекурсивно вызываем для подкатегорий -->
                 <div v-if="isObject(items) && !Array.isArray(items)">
-                    <TreeCategory :json="items" :parent-path="getFullPath(categoryName)" :expanded-paths="expandedPaths"  
+                    <TreeCategory :json="items" :parent-path="getFullPath(categoryName)" :expanded-paths="expandedPaths"
                         @toggle="handleToggle" @selectItem="selectItem" />
                 </div>
                 <!-- Если это массив, показываем элементы -->
@@ -21,14 +21,19 @@
                     <div v-for="(item, index) in items" :key="index" class="item odd:bg-gray-200">
                         <!-- Проверяем, является ли элемент объектом или примитивом -->
                         <div v-if="typeof item === 'object' && item !== null" class="nested-object">
-                            <TreeCategory :json="{ [`обьект в массиве. ОШИБКА СИНТАКСИСА`]: item }"  
+                            <TreeCategory :json="{ [`обьект в массиве. ОШИБКА СИНТАКСИСА`]: item }"
                                 :parent-path="getFullPath(categoryName)" :expanded-paths="expandedPaths"
-                                @toggle="handleToggle" @selectItem="selectItem"/>
+                                @toggle="handleToggle" @selectItem="selectItem" />
                         </div>
+                        <!--Стандартный вариант-->
                         <div v-else class="flex justify-between">
+                            <i>
+                                <img class="w-6 h-6" :src="`https://images.evetech.net/types/${getById(item)}/icon`"
+                                    loading="lazy" />
+                            </i>
                             <button class="item cursor-pointer hover:bg-blue-100 " @click="selectItem(item)">{{ item
                             }}</button>
-                            <Fovorite :name_item="item"  />
+                            <Fovorite :name_item="item" />
                         </div>
                     </div>
                 </div>
@@ -45,6 +50,7 @@
 import Arrow_open from '../assets/svg/Arrow_open.vue';
 import Arrow_close from '../assets/svg/Arrow_close.vue';
 import Fovorite from './Favourite.vue';
+import { useItemsHashMap } from '../composables/ItemsHashMap';
 const props = defineProps({
     json: {
         type: Object,
@@ -57,9 +63,10 @@ const props = defineProps({
     expandedPaths: {
         type: Set<string>,
         required: true
-    }, 
+    },
 });
- 
+const { getById } = useItemsHashMap();
+
 const emit = defineEmits(['toggle', 'selectItem']);
 
 // Упрощенная проверка: объект ли это
@@ -87,7 +94,6 @@ const selectItem = (item: string) => {
     emit('selectItem', item);
 }
  
-
 </script>
 
 <style scoped>
@@ -117,14 +123,14 @@ const selectItem = (item: string) => {
 }
 
 .items {
-    
+
     background: #f9fafb;
     border-radius: 4px;
-    
+
 }
 
 .item {
- 
+
     border-bottom: 1px solid #e5e7eb;
 }
 

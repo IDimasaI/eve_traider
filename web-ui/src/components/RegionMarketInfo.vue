@@ -2,6 +2,7 @@
 import type { PropType } from 'vue';
 import type { MarketData } from '../utils/API';
 import { computed, ref } from 'vue';
+import { CurrentTheme, Themes } from '../composables/Theme';
 const { info } = defineProps({
     info: {
         type: Object as PropType<MarketData>,
@@ -16,7 +17,7 @@ const sortOption = ref<SortOption>('default');
 // Отсортированные заказы
 const sortedOrders = computed(() => {
     const orders = info?.data ? [...info.data] : [];
-    
+
     switch (sortOption.value) {
         case 'price_desc':
             return orders.sort((a, b) => (b.price || 0) - (a.price || 0));
@@ -34,13 +35,13 @@ const sortedOrders = computed(() => {
 // Функция для расчета даты окончания
 const calculateEndDate = (order: any): string => {
     if (!order?.issued) return 'Не указана';
-    
+
     const issuedDate = new Date(order.issued);
     if (isNaN(issuedDate.getTime())) return 'Неверная дата';
-    
+
     const endDate = new Date(issuedDate);
     endDate.setDate(endDate.getDate() + (order.duration || 0));
-    
+
     return endDate.toLocaleDateString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
@@ -56,18 +57,25 @@ const formatPrice = (price: number): string => {
         maximumFractionDigits: 2
     });
 }
-
+const classes = computed(() => {
+    return {
+        color: CurrentTheme.value === Themes.dark ? 'text-[#f1f5f9]' : 'text-[#333]',
+        bg: CurrentTheme.value === Themes.dark ? 'bg-[#1e293b]' : 'bg-white',
+        border_color: CurrentTheme.value === Themes.dark ? 'border-gray-500' : 'border-gray-300'
+    }
+})
 </script>
 
 <template>
-    <section class="p-4">
-        <div>
-            <h1 class="text-xl font-bold mb-4">
+    <section :class="`p-4 ${classes.color} bg-[#1e293b]/50 ${CurrentTheme===Themes.dark ? 'dark-theme' : ''}`">
+        <div class="">
+            <h1 :class="`text-xl font-bold mb-4 text-[#f1f5f9]`">
                 Информация о рынке {{ info?.market || 'Не указан' }}
             </h1>
-             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                <span class="font-medium">Сортировка:</span>
-                <select v-model="sortOption" class="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <span class="font-medium text-[#f1f5f9]">Сортировка:</span>
+                <select name="sort" v-model="sortOption"
+                    class="period-select max-w-32 max-h-32">
                     <option value="default">По умолчанию</option>
                     <option value="price_desc">Цена ↓</option>
                     <option value="price_asc">Цена ↑</option>
@@ -78,7 +86,7 @@ const formatPrice = (price: number): string => {
         </div>
         <div v-if="sortedOrders.length" class="space-y-4">
             <div v-for="(order, index) in sortedOrders" :key="order.order_id || index"
-                class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                :class="`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 ${classes.bg} rounded-lg`">
 
                 <div class="space-y-2">
                     <h3 class="font-semibold text-lg">Ордер #{{ index + 1 }}</h3>
@@ -101,7 +109,7 @@ const formatPrice = (price: number): string => {
                             :style="{ width: `${(order.volume_remain / order.volume_total) * 100 || 0}%` }">
                         </div>
                     </div>
-                    <p class="text-sm text-gray-600">
+                    <p :class="`text-sm stat-label`">
                         Осталось {{ order.volume_remain || 0 }}
                     </p>
                 </div>

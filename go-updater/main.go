@@ -17,6 +17,7 @@ func isDev() bool {
 func main() {
 
 	command := flag.String("command", "", "Command to execute")
+	addr := flag.String("addr", "http://localhost:6969/api/v2/update_status", "Port to listen on")
 	flag.Parse()
 
 	if *command == "" {
@@ -29,7 +30,7 @@ func main() {
 	case "upload":
 		cmd.Upload()
 	case "download":
-		cmd.Download(isDev())
+		cmd.Download(isDev(), *addr)
 	default:
 		fmt.Println("Invalid type")
 		fmt.Println("Usage: go-updater -command [upload|download]")

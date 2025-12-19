@@ -8,6 +8,7 @@ import (
 	"local_server/utils"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,9 +19,6 @@ type Release struct {
 	Name        string `json:"name"`
 	HTMLURL     string `json:"html_url"`    //https://github.com/IDimasaI/eve_traider/releases/tag/v0
 	Zipball_url string `json:"zipball_url"` //https://github.com/IDimasaI/eve_traider/archive/refs/tags/v0.zip
-}
-type Config struct {
-	Version string `json:"version"`
 }
 
 func getLatestRelease(owner, repo string) (*Release, error) {
@@ -119,8 +117,10 @@ func unpackZip(zipPath, downloadPath string) error {
 
 	// Список файлов, которые могут быть запущены
 	runningExecutables := map[string]bool{
-		"launcher.exe": true,
-		"updater.exe":  true,
+		"go-backend_no_gui.exe": true,
+		"go-backend.exe":        true,
+		"launcher.exe":          true,
+		"updater.exe":           true,
 	}
 
 	for _, file := range reader.File {
@@ -164,8 +164,10 @@ func unpackZip(zipPath, downloadPath string) error {
 func deleteZipFile(release *Release) error {
 	return os.RemoveAll(fmt.Sprintf("release-%s.zip", release.TagName))
 }
-func Download(isDev bool) {
+func Download(isDev bool, addr string) {
 	fmt.Println("Downloading...")
+
+	http.PostForm(addr, url.Values{"update": {"start"}, "progress": {"start"}})
 
 	var config_path string
 
@@ -179,11 +181,11 @@ func Download(isDev bool) {
 	os.MkdirAll(filepath.Dir(config_path), 0755)
 
 	// Пробуем прочитать, если не получается - создаем новый
-	config, err := utils.ReadJson[Config](config_path)
+	config, err := utils.ReadJson[utils.Config](config_path)
 	if err != nil {
 		log.Printf("Error reading config: %v, creating default", err)
-		config = Config{Version: "0.0"}
-		if err := utils.WriteJson[Config](config_path, config); err != nil {
+		config = utils.Config{Version: "0.0"}
+		if err := utils.WriteJson[utils.Config](config_path, config); err != nil {
 			log.Printf("Failed to create config: %v", err)
 			return
 		}
@@ -193,6 +195,7 @@ func Download(isDev bool) {
 
 	release, err := getLatestRelease("IDimasaI", "eve_traider")
 	if err != nil {
+		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		fmt.Println("Error:", err)
 		return
 	}
@@ -200,12 +203,15 @@ func Download(isDev bool) {
 
 	if release.TagName == config.Version {
 		log.Println("Already up to date")
+		http.PostForm(addr, url.Values{"update": {"finished"}, "progress": {"Already up to date"}})
 		return
 	}
 
+	http.PostForm(addr, url.Values{"update": {"working"}, "progress": {"downloadRelease"}})
 	err = downloadRelease(release)
 	if err != nil {
 		fmt.Println("Error:", err)
+		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		return
 	}
 
@@ -218,17 +224,22 @@ func Download(isDev bool) {
 	}
 
 	defer deleteZipFile(release)
+	http.PostForm(addr, url.Values{"update": {"working"}, "progress": {"unpackRelease"}})
 	err = unpackZip(fmt.Sprintf("release-%s.zip", release.TagName), downloadPath)
 	if err != nil {
 		fmt.Println("Error:", err)
+		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		return
 	}
 
-	err = utils.WriteJson(config_path, Config{Version: release.TagName})
+	http.PostForm(addr, url.Values{"update": {"working"}, "progress": {"updateConfig"}})
+	err = utils.WriteJson(config_path, utils.Config{Version: release.TagName})
 	if err != nil {
 		fmt.Println("Error:", err)
+		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		return
 	}
 
+	http.PostForm(addr, url.Values{"update": {"finished"}, "progress": {"updateComplete"}})
 	fmt.Printf("Latest release: %s (%s)\n", release.Name, release.TagName)
 }

@@ -1,4 +1,5 @@
 interface SearchResult {
+  id: number;
   item: string;
   score: number;
   exactMatch?: boolean;
@@ -10,22 +11,22 @@ interface SearchConfig {
   maxResults?: number; // Ограничение количества результатов
   exactMatchPriority?: boolean; // Приоритет точным совпадениям
 }
-
+import { type Items } from './API';
 export class FuzzySearcher {
 
   private preprocessed: Array<{
+    id: number;
     original: string;
     lowercase: string;
     words: string[];
   }>;
-  items: string[];
 
-  constructor(items: string[]) {
-    this.items = items;
+  constructor(items: Items) {  
     this.preprocessed = items.map((item) => ({
-      original: item,
-      lowercase: item.toLowerCase(),
-      words: item.toLowerCase().split(/\s+/),
+      id: item.id,
+      original: item.name,
+      lowercase: item.name.toLowerCase(),
+      words: item.name.toLowerCase().split(/\s+/),
     }));
   }
 
@@ -60,6 +61,7 @@ export class FuzzySearcher {
         const score = this.calculateMatchScore(queryWords, data);
         const exactMatch = this.isExactMatch(data.original, query);
         return {
+          id: data.id,
           item: data.original,
           score: exactMatch ? score + exactMatchBonus : score,
           exactMatch,
@@ -87,6 +89,7 @@ export class FuzzySearcher {
       // Проверяем точное совпадение всей строки (без учёта регистра)
       if (data.lowercase === query.toLowerCase()) {
         exactMatches.push({
+           id: data.id,
           item: data.original,
           score: 1.0,
           exactMatch: true,
@@ -101,6 +104,7 @@ export class FuzzySearcher {
 
       if (hasAllWords) {
         exactMatches.push({
+          id: data.id,
           item: data.original,
           score: 0.9,
           exactMatch: true,

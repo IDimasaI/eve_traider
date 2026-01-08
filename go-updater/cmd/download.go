@@ -235,7 +235,8 @@ func Download(isDev bool, addr string, repo string) {
 
 	var downloadPath string
 	if isDev {
-		downloadPath = "E:\\dev\\eve\\app_eve_traider\\go-updater"
+		dir, _ := os.Getwd()
+		downloadPath = filepath.Join(dir, "download")
 	} else {
 		downloadPath, _ = os.Executable()
 		downloadPath = filepath.Join(filepath.Dir(downloadPath))

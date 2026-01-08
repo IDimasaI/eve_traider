@@ -1,4 +1,5 @@
 build/data/webview2
+build/data/olds
 .env
 node_modules
 *.sum

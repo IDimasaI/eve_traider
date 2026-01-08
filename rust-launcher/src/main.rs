@@ -68,6 +68,8 @@ fn get_icon_path() -> PathBuf {
 
 impl ApplicationHandler for State {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        //Безопасно потому что:
+        //Запись происходит единожды
         unsafe {
             std::env::set_var(
                 "WEBVIEW2_USER_DATA_FOLDER",
@@ -104,6 +106,10 @@ impl ApplicationHandler for State {
                             })
                             .arg("-command")
                             .arg("download")
+                            .arg("-repo")
+                            .arg("IDimasaI/eve_traider")
+                            .arg("-addr")
+                            .arg("http://localhost:6969/api/v2/update_status")
                             .spawn()
                             .expect("Failed to start update process");
                         });
@@ -226,6 +232,8 @@ fn main() -> wry::Result<()> {
 
     // Updater
     if DEV_MODE {
+        //Безопасно потому что:
+        //Запись происходит единожды и в основном потоке
         unsafe {
             std::env::set_var("WEB_SERVER_ADDR", "http://localhost:5173");
         }
@@ -238,6 +246,10 @@ fn main() -> wry::Result<()> {
             })
             .arg("-command")
             .arg("download")
+            .arg("-repo")
+            .arg("IDimasaI/eve_traider")
+            .arg("-addr")
+            .arg("http://localhost:6969/api/v2/update_status")
             .status() // Используем .status() чтобы дождаться завершения и получить код
             .expect("Failed to start and wait for update process");
 

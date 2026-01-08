@@ -64,5 +64,36 @@ func (s *Status) Update_Status(w http.ResponseWriter, r *http.Request) error {
 
 	s.Status = form.Get("update")
 	s.Progress = form.Get("progress")
+	if s.Progress == "updateComplete" {
+		if err := s.update_current_version(); err != nil {
+			fmt.Println("Error:", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Status) update_current_version() error {
+	var config_path string
+	var config utils.Config
+	var err error
+	if utils.IsDev() {
+		config_path = "./../build/data/config.json"
+		config, err = utils.ReadJson[utils.Config](config_path)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return err
+		}
+	} else {
+		config_path = "data/config.json"
+		config, err = utils.ReadJson[utils.Config](config_path)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return err
+		}
+	}
+
+	s.Current_Version = config.Version
+
 	return nil
 }

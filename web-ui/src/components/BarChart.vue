@@ -1,6 +1,6 @@
 <template>
   <div class="price-chart-container" :class="{ 'dark-theme': isDarkTheme }">
-   
+
     <div class="chart-header">
       <h3>Динамика цен за месяц<small>(за все время, приложение еще не проработало и 20 дней).</small></h3>
     </div>
@@ -13,19 +13,19 @@
       <div class="stats">
         <div class="stat-item">
           <span class="stat-label">Текущая цена:</span>
-          <span class="stat-value">{{ formatCurrency(currentPrice) }}</span>
+          <span class="stat-value">{{ formatPrice(currentPrice) }}</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Средняя цена:</span>
-          <span class="stat-value average-price">{{ formatCurrency(averagePrice) }}</span>
+          <span class="stat-value average-price">{{ formatPrice(averagePrice) }}</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Минимальная:</span>
-          <span class="stat-value min-price">{{ formatCurrency(minPrice) }}</span>
+          <span class="stat-value min-price">{{ formatPrice(minPrice) }}</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Максимальная:</span>
-          <span class="stat-value max-price">{{ formatCurrency(maxPrice) }}</span>
+          <span class="stat-value max-price">{{ formatPrice(maxPrice) }}</span>
         </div>
       </div>
       <div id="more" class="text-center">
@@ -66,18 +66,11 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Chart, registerables, type ChartData, type ChartOptions } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import { find_id } from '../utils/API'
+import { find_id, type PriceItem, get_price } from '../utils/API'
+import { formatDeltaOrderVolume, formatPrice } from '../utils/formats'
 import { CurrentTheme, Themes } from '../composables/Theme'
 // Регистрируем компоненты Chart.js 
 Chart.register(...registerables)
-
-type PriceItem = {
-  item_id: number;
-  timestamp: number;
-  price: string;
-  error: boolean;
-  day: string;
-}
 
 type MoreData = {
   open: boolean;
@@ -177,14 +170,11 @@ const filteredData = computed(() => {
   return info
 })
 
-const formatDeltaOrderVolume = (order: number, volume: number): string => {
-  return `${(volume / order).toFixed(1)}`
-}
-
+ 
 const generateData = async (): Promise<void> => {
+  if(!id_item) return
   let prices = await get_price(id_item)
   let iter = 4
-
   if (prices[0] && prices[0].error) {
     for (let i = 0; i < iter; i++) {
       prices = await get_price(id_item)
@@ -226,25 +216,9 @@ const generateData = async (): Promise<void> => {
   }
 }
 
-const get_price = async (id: number | null): Promise<PriceItem[]> => {
-  if (!id) {
-    return [{ item_id: 0, timestamp: 0, price: "0", error: true, day: "" }]
-  }
 
-  try {
-    const res = await fetch(`/api/v2/get_prices?id=${id}`)
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
-    return await res.json()
-  } catch (error) {
-    console.error("Ошибка при получении цен:", error)
-    return [{ item_id: id, timestamp: Date.now(), price: "0", error: true, day: "" }]
-  }
-}
 
-const formatCurrency = (value: number): string => {
-  return `${value.toFixed(2)} Isk`
-}
-
+ 
 const averagePrice = computed<number>(() => {
   if (dailyPrices.value.length === 0) return 0
   const sum = dailyPrices.value.reduce((acc, item) => acc + parseFloat(item.price), 0)
@@ -262,6 +236,7 @@ const maxPrice = computed<number>(() => {
 })
 
 const currentPrice = computed<number>(() => {
+
   if (dailyPrices.value.length === 0) return 0
   const lastItem = dailyPrices.value[dailyPrices.value.length - 1]
   return lastItem ? parseFloat(lastItem.price) : 0
@@ -334,7 +309,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
           return ''
         },
         label: (context: any) => {
-          return `💰 ${formatCurrency(context?.raw)}`
+          return `💰 ${formatPrice(context?.raw)}`
         },
       }
     }

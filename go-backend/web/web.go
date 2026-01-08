@@ -11,6 +11,7 @@ import (
 	"local_server/web/api"
 	v2 "local_server/web/api/v2"
 	proxy "local_server/web/proxys"
+	specapi "local_server/web/spec_api"
 	"log"
 	"net/http"
 	"os"
@@ -225,6 +226,12 @@ func StartHTTPServer(ctx context.Context, errorChan chan error) {
 				json.NewEncoder(w).Encode(status)
 			}
 		})
+	}
+
+	//Специфичные для платформы эндпоинты
+	{
+		spe := specapi.CreatePlatform(os.Getenv("PLATFORM") == "cloud")
+		spe.Cloud.Start()
 	}
 
 	server := &http.Server{

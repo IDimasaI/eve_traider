@@ -21,8 +21,13 @@ type Release struct {
 	Zipball_url string `json:"zipball_url"` //https://github.com/IDimasaI/eve_traider/archive/refs/tags/v0.zip
 }
 
-func getLatestRelease(owner, repo string) (*Release, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+/*
+Example repo "IDimasaI/eve_traider"
+*/
+func getLatestRelease(repo string) (*Release, error) {
+	fmt.Println("Fetching latest release...", repo)
+
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -168,10 +173,19 @@ func unpackZip(zipPath, downloadPath string) error {
 func deleteZipFile(release *Release) error {
 	return os.RemoveAll(fmt.Sprintf("release-%s.zip", release.TagName))
 }
-func Download(isDev bool, addr string) {
+
+func sendHttpReq(addr string, data url.Values) {
+	if addr == "" {
+		//	fmt.Println("Address is empty")
+		return
+	}
+	http.PostForm(addr, data)
+}
+
+func Download(isDev bool, addr string, repo string) {
 	fmt.Println("Downloading...")
 
-	http.PostForm(addr, url.Values{"update": {"start"}, "progress": {"start"}})
+	sendHttpReq(addr, url.Values{"update": {"start"}, "progress": {"start"}})
 
 	var config_path string
 
@@ -197,9 +211,9 @@ func Download(isDev bool, addr string) {
 
 	log.Println("Current version:", config.Version)
 
-	release, err := getLatestRelease("IDimasaI", "eve_traider")
+	release, err := getLatestRelease(repo)
 	if err != nil {
-		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
+		sendHttpReq(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		fmt.Println("Error:", err)
 		return
 	}
@@ -207,15 +221,15 @@ func Download(isDev bool, addr string) {
 
 	if release.TagName == config.Version {
 		log.Println("Already up to date")
-		http.PostForm(addr, url.Values{"update": {"finished"}, "progress": {"Already up to date"}})
+		sendHttpReq(addr, url.Values{"update": {"finished"}, "progress": {"Already up to date"}})
 		return
 	}
 
-	http.PostForm(addr, url.Values{"update": {"working"}, "progress": {"downloadRelease"}})
+	sendHttpReq(addr, url.Values{"update": {"working"}, "progress": {"downloadRelease"}})
 	err = downloadRelease(release)
 	if err != nil {
 		fmt.Println("Error:", err)
-		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
+		sendHttpReq(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		return
 	}
 
@@ -228,22 +242,22 @@ func Download(isDev bool, addr string) {
 	}
 
 	defer deleteZipFile(release)
-	http.PostForm(addr, url.Values{"update": {"working"}, "progress": {"unpackRelease"}})
+	sendHttpReq(addr, url.Values{"update": {"working"}, "progress": {"unpackRelease"}})
 	err = unpackZip(fmt.Sprintf("release-%s.zip", release.TagName), downloadPath)
 	if err != nil {
 		fmt.Println("Error:", err)
-		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
+		sendHttpReq(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		return
 	}
 
-	http.PostForm(addr, url.Values{"update": {"working"}, "progress": {"updateConfig"}})
+	sendHttpReq(addr, url.Values{"update": {"working"}, "progress": {"updateConfig"}})
 	err = utils.WriteJson(config_path, utils.Config{Version: release.TagName})
 	if err != nil {
 		fmt.Println("Error:", err)
-		http.PostForm(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
+		sendHttpReq(addr, url.Values{"update": {"error"}, "progress": {err.Error()}})
 		return
 	}
 
-	http.PostForm(addr, url.Values{"update": {"finished"}, "progress": {"updateComplete"}})
+	sendHttpReq(addr, url.Values{"update": {"finished"}, "progress": {"updateComplete"}})
 	fmt.Printf("Latest release: %s (%s)\n", release.Name, release.TagName)
 }

@@ -4,3 +4,4 @@ node_modules
 *.sum
 *.json
 *.mp3
+**/spec_api/cloud/*

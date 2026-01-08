@@ -65,18 +65,18 @@ const search_in_market = async () => {
 
     set_market_loading()
     const markets = [
-        { id: 10000002, name: "Jita" },
-        { id: 10000030, name: "Rens" },
-        { id: 10000032, name: "Dodixie" },
-        { id: 10000042, name: "Hek" },
-        { id: 10000043, name: "Amarr" },
+        { id: 10000002, name: "The Forge" },
+        { id: 10000030, name: "Heimatar" },
+        { id: 10000032, name: "Sinq Laison" },
+        { id: 10000042, name: "Metropolis" },
+        { id: 10000043, name: "Domain" },
     ]
 
     const promises = markets.map(async market => {
-        const res = await fetch(`https://esi.evetech.net/latest/markets/${market.id}/orders/?type_id=${id}&order_type=sell&language=en-us`)
+        const res = await fetch(`https://esi.evetech.net/latest/markets/${market.id}/orders/?type_id=${id}&page=1&order_type=all&language=en-us&datasource=tranquility`)
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
-        const data = await res.json()
-        return { loading: false, market: market.name, data: data }
+        const data = await res.json() 
+        return { loading: false, Region: market.name, data: data }
     })
 
     const results = await Promise.all(promises)
@@ -195,7 +195,7 @@ onMounted(async () => {
                 <template v-else-if="type_search == SearchType.Market">
                     <div class="text-center text-white w-full mx-auto">
                         <label for="search">Поиск в 5 магазинах по названию</label>
-                        <input id="search" type="text" placeholder="Search..." v-model="searchQuery"
+                        <input id="search" type="text" placeholder="Search..." v-model="searchQuery" @keypress="(event) => { if (event.key === 'Enter') { search_in_market() } }"
                             class="mt-2 w-full border border-y-slate-500 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-white rounded-md px-2 py-1" />
                         <button @click="search_in_market"
                             class="btn hover:bg-gray-200 py-2 px-4 rounded w-1/2 mx-auto">Начать
@@ -203,10 +203,10 @@ onMounted(async () => {
                         <div class="flex flex-col  mb-8">
                             <div v-for="item in marketData">
                                 <p class="text-sm text-gray-500 pointer-events-none" v-if="!item.loading">
-                                    {{ item.market }}: {{ item.data.length }}
+                                    {{ item.Region }}: {{ item.data.length }}
                                 </p>
                                 <p class="text-sm text-gray-500 pointer-events-none" v-else>
-                                    {{ item.market }}: Загрузка
+                                    {{ item.Region }}: Загрузка
                                 </p>
                             </div>
                         </div>
@@ -231,10 +231,8 @@ onMounted(async () => {
                     <BarChart :name_item="selectedItem"></BarChart>
                 </section>
 
-                <div v-if="type_search == SearchType.Market" class="grid grid-cols-2">
-                    <template v-for="item in marketData">
-                        <RegionMarketInfo :info="item" v-if="item.data.length > 0" />
-                    </template>
+                <div v-if="type_search == SearchType.Market" class="">
+                    <RegionMarketInfo :info_all="marketData" v-if="marketData.length > 0" />
                 </div>
 
                 <section id="Favorites" class="w-full bg-[#1e293b]/50 rounded-md px-4 py-2 "
